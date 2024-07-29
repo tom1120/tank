@@ -1,0 +1,19 @@
+### 测试ffmpeg
+POST http://{{host}}/api/asynq/hello
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+
+### 测试asynq task ， 上传过的视频文件uuid   1280_640  1300  1536  2000
+POST  http://{{host}}/api/asynq/asynqVideoTask  
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+uuid=9d383d7e-97e9-4119-5b9f-632cf67a5234&w=1280
+
+### 测试asynq task fetch result
+POST http://{{host}}/api/asynq/asynqTaskResultFetch
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+taskId=9d383d7e-97e9-4119-5b9f-632cf67a5234_1280

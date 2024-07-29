@@ -1,0 +1,38 @@
+{
+    "tasks": [
+        {
+            "label": "go: cp_file",
+            "type": "shell",
+            "command": "sh",
+            "args": [
+                "${workspaceFolder}/shells/cp_file.cmd",
+                "${workspaceFolder}"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },{
+        "label": "go: backend(debug)",
+        "type": "shell",
+        "command": "go",
+        "args": [
+            "build",
+            "-gcflags=all=-N -l",
+            "-o",
+            "${workspaceFolder}/tmp/dist/tank.exe",
+            "${workspaceFolder}/main.go"
+        ],
+        "group": {
+            "kind": "build",
+            "isDefault": true
+        }
+    },{
+        "label": "Build",
+        "dependsOn": [
+            "go: cp_file",
+            "go: backend(debug)"
+        ],
+        "dependsOrder": "sequence"
+    }]
+}

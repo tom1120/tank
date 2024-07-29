@@ -1,14 +1,15 @@
 package rest
 
 import (
+	"os"
+	"time"
+
 	"github.com/eyebluecn/tank/code/core"
 	"github.com/eyebluecn/tank/code/tool/builder"
 	"github.com/eyebluecn/tank/code/tool/result"
 	"github.com/eyebluecn/tank/code/tool/util"
 	"github.com/jinzhu/gorm"
-	"github.com/nu7hatch/gouuid"
-	"os"
-	"time"
+	uuid "github.com/nu7hatch/gouuid"
 )
 
 type MatterDao struct {
@@ -45,7 +46,7 @@ func (this *MatterDao) FindByUuid(uuid string) *Matter {
 	return entity
 }
 
-//find by uuid. if not found panic NotFound error
+// find by uuid. if not found panic NotFound error
 func (this *MatterDao) CheckByUuid(uuid string) *Matter {
 	entity := this.FindByUuid(uuid)
 	if entity == nil {
@@ -326,7 +327,7 @@ func (this *MatterDao) Save(matter *Matter) *Matter {
 	return matter
 }
 
-//download time add 1
+// download time add 1
 func (this *MatterDao) TimesIncrement(matterUuid string) {
 	db := core.CONTEXT.GetDB().Model(&Matter{}).Where("uuid = ?", matterUuid).Update("times", gorm.Expr("times + 1"))
 	this.PanicError(db.Error)
@@ -352,7 +353,7 @@ func (this *MatterDao) SizeByPuuidAndUserUuid(matterUuid string, userUuid string
 	return sumSize
 }
 
-//delete a file from db and disk.
+// delete a file from db and disk.
 func (this *MatterDao) Delete(matter *Matter) {
 
 	// recursive if dir
@@ -435,6 +436,24 @@ func (this *MatterDao) findByUserUuidAndPath(userUuid string, path string) *Matt
 	return matter
 }
 
+func (this *MatterDao) FindByUserUuidAndPathPublic(userUuid string, path string) *Matter {
+
+	var wp = &builder.WherePair{Query: "user_uuid = ? AND path = ?", Args: []interface{}{userUuid, path}}
+
+	var matter = &Matter{}
+	db := core.CONTEXT.GetDB().Model(&Matter{}).Where(wp.Query, wp.Args...).First(matter)
+
+	if db.Error != nil {
+		if db.Error.Error() == result.DB_ERROR_NOT_FOUND {
+			return nil
+		} else {
+			this.PanicError(db.Error)
+		}
+	}
+
+	return matter
+}
+
 func (this *MatterDao) checkByUserUuidAndPath(userUuid string, path string) *Matter {
 
 	if path == "" {
@@ -481,7 +500,7 @@ func (this *MatterDao) CountByUserUuidAndPath(userUuid string, path string) int6
 
 }
 
-//统计总共有多少条。
+// 统计总共有多少条。
 func (this *MatterDao) Count() int64 {
 
 	var count int64
@@ -492,7 +511,7 @@ func (this *MatterDao) Count() int64 {
 
 }
 
-//System cleanup.
+// System cleanup.
 func (this *MatterDao) Cleanup() {
 	this.logger.Info("[MatterDao] clean up. Delete all Matter record in db and on disk.")
 	db := core.CONTEXT.GetDB().Where("uuid is not null").Delete(Matter{})

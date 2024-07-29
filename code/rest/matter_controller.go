@@ -1,13 +1,14 @@
 package rest
 
 import (
+	"net/http"
+	"strconv"
+	"strings"
+
 	"github.com/eyebluecn/tank/code/core"
 	"github.com/eyebluecn/tank/code/tool/builder"
 	"github.com/eyebluecn/tank/code/tool/i18n"
 	"github.com/eyebluecn/tank/code/tool/result"
-	"net/http"
-	"strconv"
-	"strings"
 )
 
 type MatterController struct {
@@ -72,6 +73,9 @@ func (this *MatterController) RegisterRoutes() map[string]func(writer http.Respo
 
 	routeMap["/api/matter/create/directory"] = this.Wrap(this.CreateDirectory, USER_ROLE_USER)
 	routeMap["/api/matter/upload"] = this.Wrap(this.Upload, USER_ROLE_USER)
+
+	routeMap["/api/matter/uploadWithVideo"] = this.Wrap(this.UploadWithVideo, USER_ROLE_USER)
+
 	routeMap["/api/matter/crawl"] = this.Wrap(this.Crawl, USER_ROLE_USER)
 	routeMap["/api/matter/delete"] = this.Wrap(this.Delete, USER_ROLE_USER)
 	routeMap["/api/matter/delete/batch"] = this.Wrap(this.DeleteBatch, USER_ROLE_USER)
@@ -256,7 +260,44 @@ func (this *MatterController) Upload(writer http.ResponseWriter, request *http.R
 	return this.Success(matter)
 }
 
-//crawl a file by url.
+func (this *MatterController) UploadWithVideo(writer http.ResponseWriter, request *http.Request) *result.WebResult {
+
+	puuid := request.FormValue("puuid")
+	privacyStr := request.FormValue("privacy")
+	file, handler, err := request.FormFile("file")
+	this.PanicError(err)
+	defer func() {
+		err := file.Close()
+		this.PanicError(err)
+	}()
+
+	user := this.checkUser(request)
+
+	privacy := privacyStr == TRUE
+
+	err = request.ParseMultipartForm(32 << 20)
+	this.PanicError(err)
+
+	//for IE browser. filename may contains filepath.
+	fileName := handler.Filename
+	pos := strings.LastIndex(fileName, "\\")
+	if pos != -1 {
+		fileName = fileName[pos+1:]
+	}
+	pos = strings.LastIndex(fileName, "/")
+	if pos != -1 {
+		fileName = fileName[pos+1:]
+	}
+
+	dirMatter := this.matterDao.CheckWithRootByUuid(puuid, user)
+
+	//support upload simultaneously
+	matter := this.matterService.UploadWithVideo(request, file, user, dirMatter, fileName, privacy)
+
+	return this.Success(matter)
+}
+
+// crawl a file by url.
 func (this *MatterController) Crawl(writer http.ResponseWriter, request *http.Request) *result.WebResult {
 
 	url := request.FormValue("url")
@@ -422,7 +463,7 @@ func (this *MatterController) Move(writer http.ResponseWriter, request *http.Req
 	return this.Success(nil)
 }
 
-//mirror local files to EyeblueTank
+// mirror local files to EyeblueTank
 func (this *MatterController) Mirror(writer http.ResponseWriter, request *http.Request) *result.WebResult {
 
 	srcPath := request.FormValue("srcPath")
@@ -446,7 +487,7 @@ func (this *MatterController) Mirror(writer http.ResponseWriter, request *http.R
 
 }
 
-//download zip.
+// download zip.
 func (this *MatterController) Zip(writer http.ResponseWriter, request *http.Request) *result.WebResult {
 
 	uuids := request.FormValue("uuids")

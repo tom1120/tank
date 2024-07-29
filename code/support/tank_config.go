@@ -1,13 +1,15 @@
 package support
 
 import (
-	"github.com/eyebluecn/tank/code/core"
-	"github.com/eyebluecn/tank/code/tool/util"
-	"github.com/json-iterator/go"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
 	"unsafe"
+
+	"github.com/eyebluecn/tank/code/core"
+	"github.com/eyebluecn/tank/code/tool/util"
+	jsoniter "github.com/json-iterator/go"
 )
 
 type TankConfig struct {
@@ -21,9 +23,13 @@ type TankConfig struct {
 	mysqlUrl string
 	//configs in tank.json
 	item *ConfigItem
+
+	myRedisUrl      string
+	myRedisDb       int
+	myRedisPassword string
 }
 
-//tank.json config items.
+// tank.json config items.
 type ConfigItem struct {
 	//server port
 	ServerPort int
@@ -40,9 +46,15 @@ type ConfigItem struct {
 	MysqlUsername string
 	//mysql password
 	MysqlPassword string
+
+	MyRedisUrl      string
+	MyRedisHost     string
+	MyRedisPort     int
+	MyRedisPassword string
+	MyRedisDb       int
 }
 
-//validate whether the config file is ok
+// validate whether the config file is ok
 func (this *ConfigItem) validate() bool {
 
 	if this.ServerPort == 0 {
@@ -145,6 +157,11 @@ func (this *TankConfig) ReadFromConfigFile() {
 		util.MakeDirAll(this.matterPath)
 
 		this.mysqlUrl = util.GetMysqlUrl(this.item.MysqlPort, this.item.MysqlHost, this.item.MysqlSchema, this.item.MysqlUsername, this.item.MysqlPassword)
+
+		this.myRedisUrl = this.item.MyRedisHost + ":" + fmt.Sprintf("%d", this.item.MyRedisPort)
+		this.myRedisDb = this.item.MyRedisDb
+		this.myRedisPassword = this.item.MyRedisPassword
+
 		this.installed = true
 
 		core.LOGGER.Info("use config file: %s", filePath)
@@ -152,27 +169,39 @@ func (this *TankConfig) ReadFromConfigFile() {
 	}
 }
 
-//whether installed.
+// whether installed.
 func (this *TankConfig) Installed() bool {
 	return this.installed
 }
 
-//server port
+// server port
 func (this *TankConfig) ServerPort() int {
 	return this.serverPort
 }
 
-//mysql url
+// mysql url
 func (this *TankConfig) MysqlUrl() string {
 	return this.mysqlUrl
 }
 
-//matter path
+// matter path
 func (this *TankConfig) MatterPath() string {
 	return this.matterPath
 }
 
-//Finish the installation. Write config to tank.json
+func (this *TankConfig) MyRedisUrl() string {
+	return this.myRedisUrl
+}
+
+func (this *TankConfig) MyRedisDb() int {
+	return this.myRedisDb
+}
+
+func (this *TankConfig) MyRedisPassword() string {
+	return this.myRedisPassword
+}
+
+// Finish the installation. Write config to tank.json
 func (this *TankConfig) FinishInstall(mysqlPort int, mysqlHost string, mysqlSchema string, mysqlUsername string, mysqlPassword string) {
 
 	var configItem = &ConfigItem{

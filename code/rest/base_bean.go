@@ -1,35 +1,38 @@
 package rest
 
 import (
+	"net/http"
+
 	"github.com/eyebluecn/tank/code/core"
 	"github.com/eyebluecn/tank/code/tool/result"
 	"github.com/eyebluecn/tank/code/tool/util"
-	"net/http"
 )
 
 type BaseBean struct {
-	logger core.Logger
+	logger    core.Logger
+	OutLogger core.Logger
 }
 
 func (this *BaseBean) Init() {
 	this.logger = core.LOGGER
+	this.OutLogger = core.LOGGER
 }
 
 func (this *BaseBean) Bootstrap() {
 
 }
 
-//clean up the application.
+// clean up the application.
 func (this *BaseBean) Cleanup() {
 
 }
 
-//shortcut for panic check.
+// shortcut for panic check.
 func (this *BaseBean) PanicError(err error) {
 	core.PanicError(err)
 }
 
-//find the current user from request.
+// find the current user from request.
 func (this *BaseBean) findUser(request *http.Request) *User {
 
 	//try to find from SessionCache.
@@ -60,7 +63,7 @@ func (this *BaseBean) findUser(request *http.Request) *User {
 
 }
 
-//find current error. If not found, panic the LOGIN error.
+// find current error. If not found, panic the LOGIN error.
 func (this *BaseBean) checkUser(request *http.Request) *User {
 	if this.findUser(request) == nil {
 		panic(result.LOGIN)

@@ -1,0 +1,62 @@
+### 根据uuid信息查询用户详细信息 ， 创建用户成功会返回uuid，这里就不提供创建接口了
+POST http://{{host}}/api/user/detail
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+uuid=c8d75a50-20a2-4b45-4c2a-a8af3a68eb31
+
+
+### 根目录下创建文件夹，根目录的uuid为root
+POST http://{{host}}/api/matter/create/directory
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+puuid=root&name=测试123
+
+
+### 搜索文件或者文件夹找到其uuid  name传空则查询全部
+POST http://{{host}}/api/matter/page
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+page=0&pageSize=50&orderCreateTime=DESC&orderDir=DESC&puuid=&name=
+
+### 创建文件夹  puuid为父文件夹的id, 创建时需要记录对应uuid，方面后续调用
+POST http://{{host}}/api/matter/create/directory
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+puuid=67f69fb8-d05b-4255-6c4a-bf4fe39f7894&name=主文件夹
+
+
+
+
+### 删除文件夹或文件   删除是级联删除，删除父，把父及其子孙删除  请慎重操作
+POST http://{{host}}/api/matter/delete
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+uuid=6cb847ee-cd80-4679-426e-658bda8e5566
+
+### 文件或文件夹重命名
+POST http://{{host}}/api/matter/rename
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+uuid=441a123f-93f2-4cda-7700-999f45ef754e&name=测试
+
+
+### 文件详情
+POST http://{{host}}/api/matter/detail
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+uuid=c23e0c6a-7cdd-4089-687b-d097d782426c
+
+
+### 文件移动
+POST http://{{host}}/api/matter/move
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+srcUuids=209c7d75-7fdc-4b98-5b90-6e47ee4744b0,885afa46-3ac8-446f-4cb4-bdec4defb211&destUuid=f9b189f0-feab-4b01-694c-46858932e171

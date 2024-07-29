@@ -1,0 +1,65 @@
+### 上传带中文文件，由于使用httpclient4的版本的上传,idea会导致中文乱码，上传中文会导致乱码，所以这个测试是失败的
+POST http://{{host}}/api/matter/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Content-Disposition: form-data; name="puuid"
+
+root
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Content-Disposition: form-data; name="file"; filename="物流系统方案(0513).pptx"
+Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation
+
+< ./物流系统方案(0513).pptx
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Content-Disposition: form-data; name="privacy"
+
+false
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr--
+
+
+### 上传视频文件 ，测试是否触发视频任务
+POST http://{{host}}/api/matter/uploadWithVideo
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Content-Disposition: form-data; name="puuid"
+
+root
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Content-Disposition: form-data; name="file"; filename="【案例银行-产品管理】设置产品售价操作讲解123.mp4"
+Content-Type: video/mp4
+
+< D:/360安全浏览器下载/【案例银行-产品管理】设置产品售价操作讲解.mp4
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Content-Disposition: form-data; name="privacy"
+
+false
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr--
+
+
+
+### 测试是否跨域
+OPTIONS http://{{host}}/api/matter/upload
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Authorization: Basic dGFuazoxMjM0NTY=
+
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Content-Disposition: form-data; name="puuid"
+
+root
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Content-Disposition: form-data; name="file"; filename="物流系统方案(0513)1.pptx"
+Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation
+
+< ./物流系统方案(0513).pptx
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr
+Content-Disposition: form-data; name="privacy"
+
+false
+------WebKitFormBoundaryNLvCKcAY2mDn8Hgr--
+
+
+

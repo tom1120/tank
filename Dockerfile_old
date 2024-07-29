@@ -1,0 +1,35 @@
+# use golang 1.12
+FROM 192.168.99.14:8101/golang:1.22.2-bullseye
+
+# maintainer. Author's name and email.
+LABEL maintainer="zhaoyi <tom1120@126.com>"
+
+# work directory.
+WORKDIR /data
+
+# Copy this project to /data
+COPY . /data
+
+# in order to make docker stateless. Prepare a volumn
+VOLUME /data/build/matter
+
+# proxy
+ENV GOPROXY=https://goproxy.io
+# ENV GOPROXY=https://mirrors.aliyun.com/goproxy
+
+# 下载依赖并编译应用
+RUN export http_proxy=http://192.168.96.18:7890 && export https_proxy=http://192.168.96.18:7890 && \
+    go mod download && \
+    go build -mod=readonly -o /data/build/tank .
+
+# 安装 ffmpeg
+RUN apt-get update && \
+    apt-get install -y ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+RUN export http_proxy= && export https_proxy=
+# use 6010 as default.
+EXPOSE 6010
+
+# tank as execute file.
+ENTRYPOINT ["/data/build/tank"]

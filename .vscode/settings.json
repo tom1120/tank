@@ -1,0 +1,22 @@
+{
+    "go.alternateTools": {},
+    "rest-client.environmentVariables": {
+        "$shared": {
+        },
+        "local": {
+            "host": "localhost:6010",
+            "auth_user_name": "tank",
+            "auth_user_password": "123456"
+        },
+        "test":{
+            "host": "192.168.99.14:6020",
+            "auth_user_name": "tank",
+            "auth_user_password": "123456"
+        },
+        "production": {
+            "host": "disk.qlzxb.cn",
+            "auth_user_name": "admin",
+            "auth_user_password": "Yundisk2019"
+        }
+    }
+}

@@ -2,13 +2,15 @@ package rest
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/eyebluecn/tank/code/core"
 	"github.com/eyebluecn/tank/code/tool/result"
-	"net/http"
-	"time"
 )
 
-//@Service
+// @Service
 type AlienService struct {
 	BaseBean
 	matterDao         *MatterDao
@@ -19,6 +21,7 @@ type AlienService struct {
 	shareService      *ShareService
 	imageCacheDao     *ImageCacheDao
 	imageCacheService *ImageCacheService
+	asynqService      *AsynqService
 }
 
 func (this *AlienService) Init() {
@@ -62,6 +65,11 @@ func (this *AlienService) Init() {
 	b = core.CONTEXT.GetBean(this.imageCacheService)
 	if c, ok := b.(*ImageCacheService); ok {
 		this.imageCacheService = c
+	}
+
+	b = core.CONTEXT.GetBean(this.asynqService)
+	if c, ok := b.(*AsynqService); ok {
+		this.asynqService = c
 	}
 }
 
@@ -147,5 +155,31 @@ func (this *AlienService) PreviewOrDownload(
 	go core.RunWithRecovery(func() {
 		this.matterDao.TimesIncrement(uuid)
 	})
+
+}
+
+func (this *AlienService) VideoPreviewAndHandle(writer http.ResponseWriter, request *http.Request, uuid string) {
+	// 获取尺寸
+	width := request.FormValue("w")
+	if width == "" {
+		panic(result.BadRequest("width is empty"))
+	}
+	// 获取用户
+	// user := this.userDao.checkUser(request)
+	// 需要做获取其物料信息
+	matter := this.matterDao.CheckByUuid(uuid)
+	// 判断其1280或640文件是否存在
+	filenamenoext := matter.Name[0:strings.LastIndex(matter.Name, ".")]
+	filenameext := matter.Name[strings.LastIndex(matter.Name, "."):]
+	video1280 := this.matterDao.FindByUserUuidAndPuuidAndDirAndName("", matter.Puuid, false, filenamenoext+"_"+width+filenameext)
+	if video1280 != nil {
+		this.matterService.DownloadFile(writer, request, video1280.AbsolutePath(), video1280.Name, true)
+	} else {
+		// 触发视频处理后台任务
+		taskIdStuct := this.asynqService.AsynqVideoTaskServiceBeforeHandle(request, width, uuid)
+		// panic(result.BadRequest("video_" + width + " not found"))
+		panic(&result.WebResult{Code: result.BAD_REQUEST.Code, Msg: "video_" + width + " not found", Data: taskIdStuct})
+
+	}
 
 }

@@ -1,12 +1,13 @@
 package support
 
 import (
+	"net/http"
+	"reflect"
+
 	"github.com/eyebluecn/tank/code/core"
 	"github.com/eyebluecn/tank/code/rest"
 	"github.com/eyebluecn/tank/code/tool/cache"
 	"github.com/jinzhu/gorm"
-	"net/http"
-	"reflect"
 )
 
 type TankContext struct {
@@ -63,7 +64,7 @@ func (this *TankContext) Cleanup() {
 	}
 }
 
-//can serve as http server.
+// can serve as http server.
 func (this *TankContext) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	this.Router.ServeHTTP(writer, request)
 }
@@ -178,6 +179,11 @@ func (this *TankContext) registerBeans() {
 	this.registerBean(new(rest.DavController))
 	this.registerBean(new(rest.DavService))
 
+	// asynq
+	this.registerBean(new(rest.AsynqController))
+	this.registerBean(new(rest.AsynqService))
+	// this.registerBean(new(rest.MyTaskHandler))
+
 }
 
 func (this *TankContext) GetBean(bean core.Bean) core.Bean {
@@ -200,7 +206,7 @@ func (this *TankContext) initBeans() {
 	}
 }
 
-//if application installed. invoke this method.
+// if application installed. invoke this method.
 func (this *TankContext) InstallOk() {
 
 	if core.CONFIG.Installed() {

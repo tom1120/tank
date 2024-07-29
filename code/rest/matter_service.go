@@ -3,11 +3,6 @@ package rest
 import (
 	"archive/zip"
 	"fmt"
-	"github.com/eyebluecn/tank/code/core"
-	"github.com/eyebluecn/tank/code/tool/download"
-	"github.com/eyebluecn/tank/code/tool/i18n"
-	"github.com/eyebluecn/tank/code/tool/result"
-	"github.com/eyebluecn/tank/code/tool/util"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +11,12 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/eyebluecn/tank/code/core"
+	"github.com/eyebluecn/tank/code/tool/download"
+	"github.com/eyebluecn/tank/code/tool/i18n"
+	"github.com/eyebluecn/tank/code/tool/result"
+	"github.com/eyebluecn/tank/code/tool/util"
 )
 
 /**
@@ -30,6 +31,7 @@ type MatterService struct {
 	imageCacheDao     *ImageCacheDao
 	imageCacheService *ImageCacheService
 	preferenceService *PreferenceService
+	asynqService      *AsynqService
 }
 
 func (this *MatterService) Init() {
@@ -65,9 +67,14 @@ func (this *MatterService) Init() {
 		this.preferenceService = b
 	}
 
+	b = core.CONTEXT.GetBean(this.asynqService)
+	if b, ok := b.(*AsynqService); ok {
+		this.asynqService = b
+	}
+
 }
 
-//Download. Support chunk download.
+// Download. Support chunk download.
 func (this *MatterService) DownloadFile(
 	writer http.ResponseWriter,
 	request *http.Request,
@@ -78,7 +85,7 @@ func (this *MatterService) DownloadFile(
 	download.DownloadFile(writer, request, filePath, filename, withContentDisposition)
 }
 
-//Download specified matters. matters must have the same puuid.
+// Download specified matters. matters must have the same puuid.
 func (this *MatterService) DownloadZip(
 	writer http.ResponseWriter,
 	request *http.Request,
@@ -148,7 +155,7 @@ func (this *MatterService) DownloadZip(
 
 }
 
-//zip matters.
+// zip matters.
 func (this *MatterService) zipMatters(request *http.Request, matters []*Matter, destPath string) {
 
 	if util.PathExists(destPath) {
@@ -241,7 +248,7 @@ func (this *MatterService) zipMatters(request *http.Request, matters []*Matter, 
 	}
 }
 
-//delete files.
+// delete files.
 func (this *MatterService) Delete(request *http.Request, matter *Matter, user *User) {
 
 	if matter == nil {
@@ -254,7 +261,7 @@ func (this *MatterService) Delete(request *http.Request, matter *Matter, user *U
 	this.ComputeRouteSize(matter.Puuid, user)
 }
 
-//atomic delete files
+// atomic delete files
 func (this *MatterService) AtomicDelete(request *http.Request, matter *Matter, user *User) {
 
 	if matter == nil {
@@ -268,7 +275,7 @@ func (this *MatterService) AtomicDelete(request *http.Request, matter *Matter, u
 	this.Delete(request, matter, user)
 }
 
-//upload files.
+// upload files.
 func (this *MatterService) Upload(request *http.Request, file io.Reader, user *User, dirMatter *Matter, filename string, privacy bool) *Matter {
 
 	if user == nil {
@@ -362,6 +369,103 @@ func (this *MatterService) Upload(request *http.Request, file io.Reader, user *U
 	return matter
 }
 
+// upload files with handle video file
+func (this *MatterService) UploadWithVideo(request *http.Request, file io.Reader, user *User, dirMatter *Matter, filename string, privacy bool) *Matter {
+
+	if user == nil {
+		panic(result.BadRequest("user cannot be nil."))
+	}
+
+	if dirMatter == nil {
+		panic(result.BadRequest("dirMatter cannot be nil."))
+	}
+
+	if len(filename) > MATTER_NAME_MAX_LENGTH {
+		panic(result.BadRequestI18n(request, i18n.MatterNameLengthExceedLimit, len(filename), MATTER_NAME_MAX_LENGTH))
+	}
+
+	dirAbsolutePath := dirMatter.AbsolutePath()
+	dirRelativePath := dirMatter.Path
+
+	count := this.matterDao.CountByUserUuidAndPuuidAndDirAndName(user.Uuid, dirMatter.Uuid, false, filename)
+	if count > 0 {
+		panic(result.BadRequestI18n(request, i18n.MatterExist, filename))
+	}
+
+	fileAbsolutePath := dirAbsolutePath + "/" + filename
+	fileRelativePath := dirRelativePath + "/" + filename
+
+	util.MakeDirAll(dirAbsolutePath)
+
+	//if exist, overwrite it.
+	exist := util.PathExists(fileAbsolutePath)
+	if exist {
+		this.logger.Error("%s exits, overwrite it.", fileAbsolutePath)
+		removeError := os.Remove(fileAbsolutePath)
+		this.PanicError(removeError)
+	}
+
+	destFile, err := os.OpenFile(fileAbsolutePath, os.O_WRONLY|os.O_CREATE, 0777)
+	this.PanicError(err)
+
+	defer func() {
+		err := destFile.Close()
+		this.PanicError(err)
+	}()
+
+	fileSize, err := io.Copy(destFile, file)
+	this.PanicError(err)
+
+	this.logger.Info("upload %s %v ", filename, util.HumanFileSize(fileSize))
+
+	//check the size limit.
+	if user.SizeLimit >= 0 {
+		if fileSize > user.SizeLimit {
+			//delete the file on disk.
+			err = os.Remove(fileAbsolutePath)
+			this.PanicError(err)
+
+			panic(result.BadRequestI18n(request, i18n.MatterSizeExceedLimit, util.HumanFileSize(fileSize), util.HumanFileSize(user.SizeLimit)))
+		}
+	}
+
+	//check total size.
+	if user.TotalSizeLimit >= 0 {
+		if user.TotalSize+fileSize > user.TotalSizeLimit {
+
+			//delete the file on disk.
+			err = os.Remove(fileAbsolutePath)
+			this.PanicError(err)
+
+			panic(result.BadRequestI18n(request, i18n.MatterSizeExceedTotalLimit, util.HumanFileSize(user.TotalSize), util.HumanFileSize(user.TotalSizeLimit)))
+		}
+	}
+
+	//write to db.
+	matter := &Matter{
+		Puuid:    dirMatter.Uuid,
+		UserUuid: user.Uuid,
+		Username: user.Username,
+		Dir:      false,
+		Name:     filename,
+		Md5:      "",
+		Size:     fileSize,
+		Privacy:  privacy,
+		Path:     fileRelativePath,
+	}
+	matter = this.matterDao.Create(matter)
+
+	// 触发视频任务
+	this.logger.Info(fmt.Sprintf("上传决定是否调用视频任务，任务id有值表明触发调用：%+v", this.asynqService.AsynqVideoTaskServiceBeforeHandle(request, "1920_1280", matter.Uuid)))
+
+	//compute the size of directory
+	go core.RunWithRecovery(func() {
+		this.ComputeRouteSize(dirMatter.Uuid, user)
+	})
+
+	return matter
+}
+
 // compute route size. It will compute upward until root directory
 func (this *MatterService) ComputeRouteSize(matterUuid string, user *User) {
 
@@ -442,7 +546,7 @@ func (this *MatterService) ComputeDirSize(dirMatter *Matter, user *User) {
 
 }
 
-//inner create directory.
+// inner create directory.
 func (this *MatterService) createDirectory(request *http.Request, dirMatter *Matter, name string, user *User) *Matter {
 
 	if dirMatter == nil {
@@ -518,7 +622,7 @@ func (this *MatterService) AtomicCreateDirectory(request *http.Request, dirMatte
 	return matter
 }
 
-//copy or move may overwrite.
+// copy or move may overwrite.
 func (this *MatterService) handleOverwrite(request *http.Request, user *User, destinationPath string, overwrite bool) {
 
 	destMatter := this.matterDao.findByUserUuidAndPath(user.Uuid, destinationPath)
@@ -534,7 +638,7 @@ func (this *MatterService) handleOverwrite(request *http.Request, user *User, de
 
 }
 
-//move srcMatter to destMatter. invoker must handled the overwrite and lock.
+// move srcMatter to destMatter. invoker must handled the overwrite and lock.
 func (this *MatterService) move(request *http.Request, srcMatter *Matter, destDirMatter *Matter, user *User) {
 
 	if srcMatter == nil {
@@ -595,7 +699,7 @@ func (this *MatterService) move(request *http.Request, srcMatter *Matter, destDi
 
 }
 
-//move srcMatter to destMatter(must be dir)
+// move srcMatter to destMatter(must be dir)
 func (this *MatterService) AtomicMove(request *http.Request, srcMatter *Matter, destDirMatter *Matter, overwrite bool, user *User) {
 
 	if srcMatter == nil {
@@ -630,7 +734,7 @@ func (this *MatterService) AtomicMove(request *http.Request, srcMatter *Matter, 
 	this.move(request, srcMatter, destDirMatter, user)
 }
 
-//move srcMatters to destMatter(must be dir)
+// move srcMatters to destMatter(must be dir)
 func (this *MatterService) AtomicMoveBatch(request *http.Request, srcMatters []*Matter, destDirMatter *Matter, user *User) {
 
 	if destDirMatter == nil {
@@ -667,7 +771,7 @@ func (this *MatterService) AtomicMoveBatch(request *http.Request, srcMatters []*
 
 }
 
-//copy srcMatter to destMatter. invoker must handled the overwrite and lock.
+// copy srcMatter to destMatter. invoker must handled the overwrite and lock.
 func (this *MatterService) copy(request *http.Request, srcMatter *Matter, destDirMatter *Matter, name string) {
 
 	if srcMatter.Dir {
@@ -716,7 +820,7 @@ func (this *MatterService) copy(request *http.Request, srcMatter *Matter, destDi
 	}
 }
 
-//copy srcMatter to destMatter.
+// copy srcMatter to destMatter.
 func (this *MatterService) AtomicCopy(request *http.Request, srcMatter *Matter, destDirMatter *Matter, name string, overwrite bool, user *User) {
 
 	if srcMatter == nil {
@@ -736,7 +840,7 @@ func (this *MatterService) AtomicCopy(request *http.Request, srcMatter *Matter, 
 	this.copy(request, srcMatter, destDirMatter, name)
 }
 
-//rename matter to name
+// rename matter to name
 func (this *MatterService) AtomicRename(request *http.Request, matter *Matter, name string, user *User) {
 
 	if user == nil {
@@ -808,7 +912,7 @@ func (this *MatterService) AtomicRename(request *http.Request, matter *Matter, n
 	return
 }
 
-//将本地文件映射到蓝眼云盘中去。
+// 将本地文件映射到蓝眼云盘中去。
 func (this *MatterService) AtomicMirror(request *http.Request, srcPath string, destPath string, overwrite bool, user *User) {
 
 	if user == nil {
@@ -829,7 +933,7 @@ func (this *MatterService) AtomicMirror(request *http.Request, srcPath string, d
 	this.mirror(request, srcPath, destDirMatter, overwrite, user)
 }
 
-//将本地文件/文件夹映射到蓝眼云盘中去。
+// 将本地文件/文件夹映射到蓝眼云盘中去。
 func (this *MatterService) mirror(request *http.Request, srcPath string, destDirMatter *Matter, overwrite bool, user *User) {
 
 	if user == nil {
@@ -897,7 +1001,7 @@ func (this *MatterService) mirror(request *http.Request, srcPath string, destDir
 
 }
 
-//根据一个文件夹路径，依次创建，找到最后一个文件夹的matter，如果中途出错，返回err. 如果存在了那就直接返回即可。
+// 根据一个文件夹路径，依次创建，找到最后一个文件夹的matter，如果中途出错，返回err. 如果存在了那就直接返回即可。
 func (this *MatterService) CreateDirectories(request *http.Request, user *User, dirPath string) *Matter {
 
 	dirPath = path.Clean(dirPath)
@@ -938,7 +1042,7 @@ func (this *MatterService) CreateDirectories(request *http.Request, user *User, 
 	return dirMatter
 }
 
-//wrap a matter. put its parent.
+// wrap a matter. put its parent.
 func (this *MatterService) WrapParentDetail(request *http.Request, matter *Matter) *Matter {
 
 	if matter == nil {
@@ -957,7 +1061,7 @@ func (this *MatterService) WrapParentDetail(request *http.Request, matter *Matte
 	return matter
 }
 
-//wrap a matter ,put its children
+// wrap a matter ,put its children
 func (this *MatterService) WrapChildrenDetail(request *http.Request, matter *Matter) {
 
 	if matter == nil {
@@ -976,13 +1080,13 @@ func (this *MatterService) WrapChildrenDetail(request *http.Request, matter *Mat
 
 }
 
-//fetch a matter's detail with parent info.
+// fetch a matter's detail with parent info.
 func (this *MatterService) Detail(request *http.Request, uuid string) *Matter {
 	matter := this.matterDao.CheckByUuid(uuid)
 	return this.WrapParentDetail(request, matter)
 }
 
-//crawl a url to dirMatter
+// crawl a url to dirMatter
 func (this *MatterService) AtomicCrawl(request *http.Request, url string, filename string, user *User, dirMatter *Matter, privacy bool) *Matter {
 
 	if user == nil {
@@ -1007,7 +1111,7 @@ func (this *MatterService) AtomicCrawl(request *http.Request, url string, filena
 	return this.Upload(request, resp.Body, user, dirMatter, filename, privacy)
 }
 
-//adjust a matter's path.
+// adjust a matter's path.
 func (this *MatterService) adjustPath(matter *Matter, parentMatter *Matter) {
 
 	if matter.Dir {

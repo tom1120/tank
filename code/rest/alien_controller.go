@@ -1,13 +1,14 @@
 package rest
 
 import (
-	"github.com/eyebluecn/tank/code/core"
-	"github.com/eyebluecn/tank/code/tool/result"
-	"github.com/eyebluecn/tank/code/tool/util"
 	"net/http"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/eyebluecn/tank/code/core"
+	"github.com/eyebluecn/tank/code/tool/result"
+	"github.com/eyebluecn/tank/code/tool/util"
 )
 
 type AlienController struct {
@@ -80,7 +81,7 @@ func (this *AlienController) RegisterRoutes() map[string]func(writer http.Respon
 	return routeMap
 }
 
-//handle some special routes, eg. params in the url.
+// handle some special routes, eg. params in the url.
 func (this *AlienController) HandleRoutes(writer http.ResponseWriter, request *http.Request) (func(writer http.ResponseWriter, request *http.Request), bool) {
 
 	path := request.URL.Path
@@ -105,10 +106,20 @@ func (this *AlienController) HandleRoutes(writer http.ResponseWriter, request *h
 		return f, true
 	}
 
+	//match /api/alien/videopreviewandhandle/{uuid}/{size}
+	reg = regexp.MustCompile(`^/api/alien/videopreviewandhandle/([^/]+)$`)
+	strs = reg.FindStringSubmatch(path)
+	if len(strs) == 2 {
+		var f = func(writer http.ResponseWriter, request *http.Request) {
+			this.VideoPreviewAndHandle(writer, request, strs[1])
+		}
+		return f, true
+	}
+
 	return nil, false
 }
 
-//fetch a upload token for guest. Guest can upload file with this token.
+// fetch a upload token for guest. Guest can upload file with this token.
 func (this *AlienController) FetchUploadToken(writer http.ResponseWriter, request *http.Request) *result.WebResult {
 
 	filename := request.FormValue("filename")
@@ -170,7 +181,7 @@ func (this *AlienController) FetchUploadToken(writer http.ResponseWriter, reques
 
 }
 
-//user confirm a file whether uploaded successfully.
+// user confirm a file whether uploaded successfully.
 func (this *AlienController) Confirm(writer http.ResponseWriter, request *http.Request) *result.WebResult {
 
 	matterUuid := request.FormValue("matterUuid")
@@ -188,7 +199,7 @@ func (this *AlienController) Confirm(writer http.ResponseWriter, request *http.R
 	return this.Success(matter)
 }
 
-//a guest upload a file with a upload token.
+// a guest upload a file with a upload token.
 func (this *AlienController) Upload(writer http.ResponseWriter, request *http.Request) *result.WebResult {
 	//allow cors.
 	this.allowCORS(writer)
@@ -239,7 +250,7 @@ func (this *AlienController) Upload(writer http.ResponseWriter, request *http.Re
 	return this.Success(matter)
 }
 
-//crawl a url with uploadToken. guest can visit this method.
+// crawl a url with uploadToken. guest can visit this method.
 func (this *AlienController) CrawlToken(writer http.ResponseWriter, request *http.Request) *result.WebResult {
 
 	//allow cors.
@@ -275,7 +286,7 @@ func (this *AlienController) CrawlToken(writer http.ResponseWriter, request *htt
 	return this.Success(matter)
 }
 
-//crawl a url directly. only user can visit this method.
+// crawl a url directly. only user can visit this method.
 func (this *AlienController) CrawlDirect(writer http.ResponseWriter, request *http.Request) *result.WebResult {
 
 	filename := request.FormValue("filename")
@@ -298,7 +309,7 @@ func (this *AlienController) CrawlDirect(writer http.ResponseWriter, request *ht
 	return this.Success(matter)
 }
 
-//fetch a download token for guest. Guest can download file with this token.
+// fetch a download token for guest. Guest can download file with this token.
 func (this *AlienController) FetchDownloadToken(writer http.ResponseWriter, request *http.Request) *result.WebResult {
 
 	matterUuid := request.FormValue("matterUuid")
@@ -338,14 +349,18 @@ func (this *AlienController) FetchDownloadToken(writer http.ResponseWriter, requ
 
 }
 
-//preview a file.
+// preview a file.
 func (this *AlienController) Preview(writer http.ResponseWriter, request *http.Request, uuid string, filename string) {
 
 	this.alienService.PreviewOrDownload(writer, request, uuid, filename, false)
 }
 
-//download a file.
+// download a file.
 func (this *AlienController) Download(writer http.ResponseWriter, request *http.Request, uuid string, filename string) {
 
 	this.alienService.PreviewOrDownload(writer, request, uuid, filename, true)
+}
+
+func (this *AlienController) VideoPreviewAndHandle(writer http.ResponseWriter, request *http.Request, uuid string) {
+	this.alienService.VideoPreviewAndHandle(writer, request, uuid)
 }

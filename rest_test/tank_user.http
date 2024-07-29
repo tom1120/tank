@@ -1,0 +1,22 @@
+### 创建用户 role={{auth_user_name}}ISTRATOR or USER   管理员账号
+POST http://{{host}}/api/user/create
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic admin {{auth_user_password}}
+
+username={{auth_user_name}}&password={{auth_user_password}}&role={{auth_user_name}}ISTRATOR&sizeLimit=-1&totalSizeLimit=-1
+
+### 用户禁用   status=OK/DISABLE  无论什么值都是反复切换  管理员账号
+POST http://{{host}}/api/user/toggle/status  
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic admin {{auth_user_password}}
+
+uuid=c8d75a50-20a2-4b45-4c2a-a8af3a68eb31&status=OK
+
+### 用户编辑  管理员账号
+POST http://{{host}}/api/user/edit
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic admin {{auth_user_password}}
+
+uuid=c8d75a50-20a2-4b45-4c2a-a8af3a68eb31&role=USER&sizeLimit=-1&totalSizeLimit=-1
+
+

@@ -3,17 +3,20 @@ package support
 import (
 	"flag"
 	"fmt"
-	"github.com/eyebluecn/tank/code/core"
-	"github.com/eyebluecn/tank/code/tool/result"
-	"github.com/eyebluecn/tank/code/tool/util"
-	jsoniter "github.com/json-iterator/go"
-	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"syscall"
+
+	"github.com/eyebluecn/tank/code/core"
+	"github.com/eyebluecn/tank/code/rest"
+	"github.com/eyebluecn/tank/code/tool/result"
+	"github.com/eyebluecn/tank/code/tool/util"
+	"github.com/hibiken/asynq"
+	jsoniter "github.com/json-iterator/go"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 const (
@@ -49,7 +52,7 @@ type TankApplication struct {
 	filename  string
 }
 
-//Start the application.
+// Start the application.
 func (this *TankApplication) Start() {
 
 	defer func() {
@@ -154,6 +157,26 @@ func (this *TankApplication) HandleWeb() {
 	tankContext.Init()
 	defer tankContext.Destroy()
 
+	// asynq 队列
+	server_asynq := asynq.NewServer(
+		asynq.RedisClientOpt{
+			Addr:     core.CONFIG.MyRedisUrl(),
+			Password: core.CONFIG.MyRedisPassword(),
+			DB:       core.CONFIG.MyRedisDb(),
+		},
+		asynq.Config{
+			Concurrency: 10,
+		},
+	)
+	// 创建一个任务处理器实例
+	taskHandler := &rest.MyTaskHandler{}
+	// 启动 Asynq 服务器
+	go func() {
+		if err := server_asynq.Start(asynq.HandlerFunc(taskHandler.ProcessTask)); err != nil {
+			log.Fatalf("Failed to start Asynq server: %v", err)
+		}
+	}()
+
 	//Step 4. Start http
 	http.Handle("/", core.CONTEXT)
 	core.LOGGER.Info("App started at http://localhost:%v", core.CONFIG.ServerPort())
@@ -254,14 +277,14 @@ func (this *TankApplication) HandleCrawl() {
 
 }
 
-//fetch the application version
+// fetch the application version
 func (this *TankApplication) HandleVersion() {
 
 	fmt.Printf("EyeblueTank %s\r\n", core.VERSION)
 
 }
 
-//migrate 2.0 to 3.0
+// migrate 2.0 to 3.0
 func (this *TankApplication) HandleMigrate20to30() {
 
 	if this.src == "" {

@@ -2,13 +2,14 @@ package rest
 
 import (
 	"fmt"
+	"go/types"
+	"net/http"
+
 	"github.com/eyebluecn/tank/code/core"
 	"github.com/eyebluecn/tank/code/tool/i18n"
 	"github.com/eyebluecn/tank/code/tool/result"
 	"github.com/eyebluecn/tank/code/tool/util"
-	"github.com/json-iterator/go"
-	"go/types"
-	"net/http"
+	jsoniter "github.com/json-iterator/go"
 )
 
 type BaseController struct {
@@ -38,17 +39,23 @@ func (this *BaseController) RegisterRoutes() map[string]func(writer http.Respons
 	return make(map[string]func(writer http.ResponseWriter, request *http.Request))
 }
 
-//handle some special routes, eg. params in the url.
+// handle some special routes, eg. params in the url.
 func (this *BaseController) HandleRoutes(writer http.ResponseWriter, request *http.Request) (func(writer http.ResponseWriter, request *http.Request), bool) {
 	return nil, false
 }
 
-//wrap the handle method.
+// wrap the handle method.
 func (this *BaseController) Wrap(f func(writer http.ResponseWriter, request *http.Request) *result.WebResult, qualifiedRole string) func(w http.ResponseWriter, r *http.Request) {
 
 	return func(writer http.ResponseWriter, request *http.Request) {
 
 		var webResult *result.WebResult = nil
+		if request.Method == "OPTIONS" {
+			this.allowCORS(writer)
+		}
+		// Set CORS headers for the main request.
+		writer.Header().Set("Access-Control-Allow-Origin", "*")
+		writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		//if the api not annotated with GUEST. login is required.
 		if qualifiedRole != USER_ROLE_GUEST {
@@ -87,7 +94,7 @@ func (this *BaseController) Wrap(f func(writer http.ResponseWriter, request *htt
 	}
 }
 
-//response a success result. 1.string 2. WebResult 3.nil pointer 4.any type
+// response a success result. 1.string 2. WebResult 3.nil pointer 4.any type
 func (this *BaseController) Success(data interface{}) *result.WebResult {
 	var webResult *result.WebResult = nil
 	if value, ok := data.(string); ok {
@@ -106,7 +113,7 @@ func (this *BaseController) Success(data interface{}) *result.WebResult {
 	return webResult
 }
 
-//allow cors.
+// allow cors.
 func (this *BaseController) allowCORS(writer http.ResponseWriter) {
 	util.AllowCORS(writer)
 }
