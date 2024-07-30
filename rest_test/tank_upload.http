@@ -40,6 +40,13 @@ false
 ------WebKitFormBoundaryNLvCKcAY2mDn8Hgr--
 
 
+### 删除视频及默认处理相关
+POST http://{{host}}/api/matter/deleteWithVideo
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{auth_user_name}} {{auth_user_password}}
+
+uuid=2fb51584-48b8-4fbe-4f00-6994930ce1e0
+
 
 ### 测试是否跨域
 OPTIONS http://{{host}}/api/matter/upload

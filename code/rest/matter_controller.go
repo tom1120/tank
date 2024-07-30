@@ -75,6 +75,7 @@ func (this *MatterController) RegisterRoutes() map[string]func(writer http.Respo
 	routeMap["/api/matter/upload"] = this.Wrap(this.Upload, USER_ROLE_USER)
 
 	routeMap["/api/matter/uploadWithVideo"] = this.Wrap(this.UploadWithVideo, USER_ROLE_USER)
+	routeMap["/api/matter/deleteWithVideo"] = this.Wrap(this.DeleteWithVideo, USER_ROLE_USER)
 
 	routeMap["/api/matter/crawl"] = this.Wrap(this.Crawl, USER_ROLE_USER)
 	routeMap["/api/matter/delete"] = this.Wrap(this.Delete, USER_ROLE_USER)
@@ -336,6 +337,25 @@ func (this *MatterController) Delete(writer http.ResponseWriter, request *http.R
 	}
 
 	this.matterService.AtomicDelete(request, matter, user)
+
+	return this.Success("OK")
+}
+
+func (this *MatterController) DeleteWithVideo(writer http.ResponseWriter, request *http.Request) *result.WebResult {
+
+	uuid := request.FormValue("uuid")
+	if uuid == "" {
+		panic(result.BadRequest("uuid cannot be null"))
+	}
+
+	matter := this.matterDao.CheckByUuid(uuid)
+
+	user := this.checkUser(request)
+	if matter.UserUuid != user.Uuid {
+		panic(result.UNAUTHORIZED)
+	}
+
+	this.matterService.AtomicDeleteWithVideo(request, matter, user)
 
 	return this.Success("OK")
 }

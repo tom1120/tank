@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/eyebluecn/tank/code/core"
+	"github.com/eyebluecn/tank/code/enums"
 	"github.com/eyebluecn/tank/code/tool/download"
 	"github.com/eyebluecn/tank/code/tool/i18n"
 	"github.com/eyebluecn/tank/code/tool/result"
@@ -275,6 +276,40 @@ func (this *MatterService) AtomicDelete(request *http.Request, matter *Matter, u
 	this.Delete(request, matter, user)
 }
 
+// atomic delete files
+func (this *MatterService) AtomicDeleteWithVideo(request *http.Request, matter *Matter, user *User) {
+
+	if matter == nil {
+		panic(result.BadRequest("matter cannot be nil"))
+	}
+
+	// 判断是否为视频文件
+	filename := matter.Name
+	filenameextname := filename[strings.LastIndex(filename, "."):]
+	filenamenoext := filename[0:strings.LastIndex(filename, ".")]
+
+	if util.IsContain(enums.VideoType("").GetAllString(), filenameextname) {
+		strarr := enums.DefaultVideo("").GetAllString()
+		for _, v := range strarr {
+			// 查询默认对应视频文件是否存在
+			v_width_file := this.matterDao.FindByUserUuidAndPuuidAndDirAndName("", matter.Puuid, false, filenamenoext+"_"+v+filenameextname)
+			if v_width_file != nil {
+				//lock
+				this.userService.MatterLock(matter.UserUuid)
+				this.Delete(request, v_width_file, user)
+				this.userService.MatterUnlock(matter.UserUuid)
+			}
+		}
+
+	}
+
+	//lock
+	this.userService.MatterLock(matter.UserUuid)
+	defer this.userService.MatterUnlock(matter.UserUuid)
+
+	this.Delete(request, matter, user)
+}
+
 // upload files.
 func (this *MatterService) Upload(request *http.Request, file io.Reader, user *User, dirMatter *Matter, filename string, privacy bool) *Matter {
 
@@ -456,7 +491,7 @@ func (this *MatterService) UploadWithVideo(request *http.Request, file io.Reader
 	matter = this.matterDao.Create(matter)
 
 	// 触发视频任务
-	this.logger.Info(fmt.Sprintf("上传决定是否调用视频任务，任务id有值表明触发调用：%+v", this.asynqService.AsynqVideoTaskServiceBeforeHandle(request, "1920_1280", matter.Uuid)))
+	this.logger.Info(fmt.Sprintf("上传决定是否调用视频任务，任务id有值表明触发调用：%+v", this.asynqService.AsynqVideoTaskServiceBeforeHandle(request, strings.Join(enums.DefaultVideo("").GetAllString(), "_"), matter.Uuid)))
 
 	//compute the size of directory
 	go core.RunWithRecovery(func() {
