@@ -182,7 +182,7 @@ func (this *TankContext) registerBeans() {
 	// asynq
 	this.registerBean(new(rest.AsynqController))
 	this.registerBean(new(rest.AsynqService))
-	// this.registerBean(new(rest.MyTaskHandler))
+	this.registerBean(new(rest.MyTaskHandler))
 
 }
 

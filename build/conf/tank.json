@@ -9,6 +9,6 @@
   
   "MyRedisHost": "redis.qlongit.cn",
   "MyRedisPort": 6379,
-  "MyRedisPassword": "",
+  "MyRedisPassword": "123456",
   "MyRedisDb": 0
  }

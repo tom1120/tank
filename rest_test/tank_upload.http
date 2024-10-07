@@ -45,7 +45,7 @@ POST http://{{host}}/api/matter/deleteWithVideo
 Content-Type: application/x-www-form-urlencoded
 Authorization: Basic {{auth_user_name}} {{auth_user_password}}
 
-uuid=2fb51584-48b8-4fbe-4f00-6994930ce1e0
+uuid=1404f697-8ca1-4705-60e2-5a73edc97eba
 
 
 ### 测试是否跨域

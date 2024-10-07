@@ -22,6 +22,7 @@ type AlienService struct {
 	imageCacheDao     *ImageCacheDao
 	imageCacheService *ImageCacheService
 	asynqService      *AsynqService
+	taskHandler       *MyTaskHandler
 }
 
 func (this *AlienService) Init() {
@@ -70,6 +71,11 @@ func (this *AlienService) Init() {
 	b = core.CONTEXT.GetBean(this.asynqService)
 	if c, ok := b.(*AsynqService); ok {
 		this.asynqService = c
+	}
+
+	b = core.CONTEXT.GetBean(this.taskHandler)
+	if c, ok := b.(*MyTaskHandler); ok {
+		this.taskHandler = c
 	}
 }
 
@@ -179,6 +185,29 @@ func (this *AlienService) VideoPreviewAndHandle(writer http.ResponseWriter, requ
 		taskIdStuct := this.asynqService.AsynqVideoTaskServiceBeforeHandle(request, width, uuid)
 		// panic(result.BadRequest("video_" + width + " not found"))
 		panic(&result.WebResult{Code: result.BAD_REQUEST.Code, Msg: "video_" + width + " not found", Data: taskIdStuct})
+
+	}
+
+}
+
+func (this *AlienService) VideoCoverPngPreviewHandle(writer http.ResponseWriter, request *http.Request, uuid string) {
+
+	// 获取用户
+	// user := this.userDao.checkUser(request)
+	// 需要做获取其物料信息
+	matter := this.matterDao.CheckByUuid(uuid)
+	// 判断其1280或640文件是否存在
+	filenamenoext := matter.Name[0:strings.LastIndex(matter.Name, ".")]
+	// filenameext := matter.Name[strings.LastIndex(matter.Name, "."):]
+	pngcover := this.matterDao.FindByUserUuidAndPuuidAndDirAndName("", matter.Puuid, false, filenamenoext+".png")
+	if pngcover != nil {
+		this.matterService.DownloadFile(writer, request, pngcover.AbsolutePath(), pngcover.Name, true)
+	} else {
+		// 触发视频处理
+		pngmater, _ := this.taskHandler.GetSnapshot(matter, 1)
+		// panic(result.BadRequest("video_" + width + " not found"))
+		// panic(&result.WebResult{Code: result.BAD_REQUEST.Code, Msg: "封面已生成", Data: ""})
+		this.matterService.DownloadFile(writer, request, pngmater.AbsolutePath(), pngmater.Name, true)
 
 	}
 

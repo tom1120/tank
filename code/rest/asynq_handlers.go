@@ -1,15 +1,18 @@
 package rest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bitly/go-simplejson"
+	"github.com/disintegration/imaging"
 	"github.com/eyebluecn/tank/code/core"
 	uuid "github.com/nu7hatch/gouuid"
 	ffmpeg_go "github.com/u2takey/ffmpeg-go"
@@ -79,6 +82,9 @@ func (this *MyTaskHandler) videoProcessTask(ctx context.Context, task *asynq.Tas
 	filenamenotext := paymodel.FileName[0:dotpos]
 
 	relativeFileNameNoExt := filenamenotext[strings.LastIndex(filenamenotext, "/")+1:]
+
+	// 截取第一帧作为封面
+	_, err := this.GetSnapshot(paymodel.Matter, 1)
 
 	// 处理宽度
 	widths := paymodel.Widths
@@ -235,4 +241,61 @@ func (this *MyTaskHandler) videoProcessTask(ctx context.Context, task *asynq.Tas
 	}
 
 	return nil
+}
+
+func (this *MyTaskHandler) GetSnapshot(fileMatter *Matter, frameNum int) (matter *Matter, err error) {
+	filename := fileMatter.Name[0:strings.LastIndex(fileMatter.Name, ".")] + ".png"
+	fileRelativePath := fileMatter.Path[0:strings.LastIndex(fileMatter.Path, "/")] + "/" + filename
+
+	fileAbsoluteVideoPath := fileMatter.AbsolutePath()
+
+	fileAbsolutePath := fileAbsoluteVideoPath[0:strings.LastIndex(fileAbsoluteVideoPath, "/")] + "/" + filename
+
+	matter = &Matter{
+		Puuid:    fileMatter.Puuid,
+		UserUuid: fileMatter.UserUuid,
+		Username: fileMatter.Username,
+		Dir:      false,
+		Name:     filename,
+		Md5:      "",
+		Size:     0,
+		Privacy:  false,
+		Path:     fileRelativePath,
+	}
+
+	buf := bytes.NewBuffer(nil)
+	err = ffmpeg_go.Input(fileAbsoluteVideoPath).Filter("select", ffmpeg_go.Args{fmt.Sprintf("gte(n,%d)", frameNum)}).
+		Output("pipe:", ffmpeg_go.KwArgs{"vframes": 1, "format": "image2", "vcodec": "mjpeg"}).
+		WithOutput(buf, os.Stdout).
+		Run()
+
+	if err != nil {
+		log.Fatal("生成缩略图失败：", err)
+		return nil, err
+	}
+
+	img, err := imaging.Decode(buf)
+	if err != nil {
+		log.Fatal("生成缩略图失败：", err)
+		return nil, err
+	}
+
+	err = imaging.Save(img, fileAbsolutePath)
+	if err != nil {
+		log.Fatal("生成缩略图失败：", err)
+		return nil, err
+	}
+
+	fi, err := os.Stat(fileAbsolutePath)
+
+	if err != nil {
+		log.Fatal("生成的缩略图文件无法统计大小", err)
+		return nil, err
+	}
+
+	matter.Size = fi.Size()
+
+	this.matterDao.Create(matter)
+
+	return matter, nil
 }

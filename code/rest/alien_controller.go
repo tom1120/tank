@@ -116,6 +116,16 @@ func (this *AlienController) HandleRoutes(writer http.ResponseWriter, request *h
 		return f, true
 	}
 
+	//match /api/alien/videopreviewandhandle/{uuid}/{size}
+	reg = regexp.MustCompile(`^/api/alien/videocoverpngpreviewhandle/([^/]+)$`)
+	strs = reg.FindStringSubmatch(path)
+	if len(strs) == 2 {
+		var f = func(writer http.ResponseWriter, request *http.Request) {
+			this.VideoCoverPngPreviewHandle(writer, request, strs[1])
+		}
+		return f, true
+	}
+
 	return nil, false
 }
 
@@ -363,4 +373,8 @@ func (this *AlienController) Download(writer http.ResponseWriter, request *http.
 
 func (this *AlienController) VideoPreviewAndHandle(writer http.ResponseWriter, request *http.Request, uuid string) {
 	this.alienService.VideoPreviewAndHandle(writer, request, uuid)
+}
+
+func (this *AlienController) VideoCoverPngPreviewHandle(writer http.ResponseWriter, request *http.Request, uuid string) {
+	this.alienService.VideoCoverPngPreviewHandle(writer, request, uuid)
 }

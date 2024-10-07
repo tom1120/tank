@@ -36,3 +36,5 @@ docker build -t tank:v1 .
 ```
 
 ### Dockfile_multi 多阶段镜像构建需要docker版本高于17.05才行
+
+admin/123456

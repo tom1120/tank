@@ -301,6 +301,15 @@ func (this *MatterService) AtomicDeleteWithVideo(request *http.Request, matter *
 			}
 		}
 
+		// 查询默认对应封面是否存在
+		cover_file := this.matterDao.FindByUserUuidAndPuuidAndDirAndName("", matter.Puuid, false, filenamenoext+".png")
+		if cover_file != nil {
+			//lock
+			this.userService.MatterLock(matter.UserUuid)
+			this.Delete(request, cover_file, user)
+			this.userService.MatterUnlock(matter.UserUuid)
+		}
+
 	}
 
 	//lock
